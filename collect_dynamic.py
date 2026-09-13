@@ -34,6 +34,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # DELETE the old extract_landmarks function and replace with this import
 import sys
 sys.path.insert(0, '.')
+from utils.camera import open_camera
 from utils.landmarks import extract_landmarks  # 63 values
 
 def empty_frame():
@@ -49,12 +50,22 @@ def collect_sign(sign_label):
     print(f"\n📌 Sign: {sign_label}  (have {existing}/{SAMPLES_PER_SIGN})")
     print("   Press SPACE to record each sample | Q to quit")
 
-    cap = cv2.VideoCapture(0)
+    cap, _ = open_camera(0)
+    if cap is None:
+        print(
+            "\n❌ Could not open any webcam.\n"
+            "   Close other apps using the camera, then try again.\n"
+            "   Test with: python test_camera.py\n"
+        )
+        return False
+
     sample_count = existing
+    cv2.namedWindow("Dynamic Data Collection", cv2.WINDOW_NORMAL)
 
     while sample_count < SAMPLES_PER_SIGN and cap.isOpened():
         ret, frame = cap.read()
         if not ret:
+            print("❌ Camera stopped returning frames.")
             break
 
         frame = cv2.flip(frame, 1)

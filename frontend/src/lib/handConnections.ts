@@ -49,7 +49,7 @@ export function drawHandOverlay(
     const r = i === 0 ? 7 : i % 4 === 0 ? 5 : 4;
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = i === 0 ? "#ff6b6b" : "rgba(139, 92, 246, 0.95)";
+    ctx.fillStyle = i === 0 ? "#e11d48" : "rgba(15, 118, 110, 0.95)";
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.9)";
     ctx.lineWidth = 1.5;

@@ -35,6 +35,7 @@ export async function correctSentence(words: string[]) {
     raw: string;
     corrected: string;
     grammar_active: boolean;
+    error?: string;
   }>;
 }
 
@@ -65,6 +66,24 @@ export function audioSrcFromResult(result: SpeakResult): string | null {
 
 export async function clearSession(): Promise<void> {
   await fetch(`${API}/api/session/reset`, { method: "POST" });
+}
+
+export type Vocabulary = {
+  static_signs: string[];
+  dynamic_signs: string[];
+  all_signs: string[];
+};
+
+export async function fetchVocabulary(): Promise<Vocabulary> {
+  const res = await fetch(`${API}/api/vocabulary`);
+  if (!res.ok) throw new Error("Failed to load vocabulary");
+  return res.json() as Promise<Vocabulary>;
+}
+
+export async function reloadModels(): Promise<Vocabulary & { ok: boolean; mode: string }> {
+  const res = await fetch(`${API}/api/models/reload`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to reload models");
+  return res.json();
 }
 
 export function wsUrl(): string {

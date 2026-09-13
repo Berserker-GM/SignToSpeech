@@ -37,9 +37,10 @@ export function useHandTracker(
         },
         runningMode: "VIDEO",
         numHands: 1,
-        minHandDetectionConfidence: 0.7,
-        minHandPresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
+        // Keep in sync with params.py MP_* values
+        minHandDetectionConfidence: 0.60,
+        minHandPresenceConfidence: 0.60,
+        minTrackingConfidence: 0.60,
       });
       if (!cancelled) {
         landmarkerRef.current = landmarker;

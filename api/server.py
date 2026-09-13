@@ -11,7 +11,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from api.inference import BROWSER_VOICE, SignEngine, correct_sentence, get_available_voices, speak_text
+from api.inference import (
+    BROWSER_VOICE,
+    SignEngine,
+    correct_sentence,
+    get_available_voices,
+    get_recognition_params,
+    speak_text,
+)
 
 engine: SignEngine | None = None
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
@@ -47,6 +54,30 @@ class SpeakRequest(BaseModel):
 @app.get("/api/health")
 def health():
     return {"ok": True, "models_loaded": engine is not None}
+
+
+@app.get("/api/params")
+def api_params():
+    """Current recognition / grammar / MediaPipe tunables."""
+    return get_recognition_params()
+
+
+@app.get("/api/vocabulary")
+def api_vocabulary():
+    """Signs the currently loaded models can recognize (after last train + server start)."""
+    if not engine:
+        raise HTTPException(503, "Models not loaded")
+    return engine.vocabulary()
+
+
+@app.post("/api/models/reload")
+def api_reload_models():
+    """Hot-reload pickles/keras after retrain without restarting the process."""
+    global engine
+    keep_mode = engine.mode if engine else "STATIC"
+    engine = SignEngine()
+    engine.mode = keep_mode
+    return {"ok": True, "mode": engine.mode, **engine.vocabulary()}
 
 
 @app.get("/api/voices")
@@ -85,13 +116,27 @@ async def ws_live(websocket: WebSocket):
         await websocket.close(code=1011)
         return
 
+    # Same models main.py would load — pick up retrain without API restart
+    engine.maybe_reload_models()
+    await websocket.send_json(
+        {
+            "type": "hello",
+            "mode": engine.mode,
+            **engine.vocabulary(),
+        }
+    )
+
     try:
         while True:
             data = await websocket.receive_json()
             msg_type = data.get("type", "frame")
 
+            # Client can pin mode on any message (avoids lost set_mode races)
+            if "mode" in data and data["mode"] in ("AUTO", "STATIC", "DYNAMIC"):
+                engine.mode = data["mode"]
+
             if msg_type == "set_mode":
-                engine.mode = data.get("mode", "AUTO")
+                engine.mode = data.get("mode", "STATIC")
                 await websocket.send_json({"type": "mode", "mode": engine.mode})
                 continue
 
@@ -102,17 +147,23 @@ async def ws_live(websocket: WebSocket):
 
             if msg_type == "reset":
                 engine.reset_session()
-                await websocket.send_json({"type": "reset"})
+                await websocket.send_json({"type": "reset", "mode": engine.mode})
                 continue
 
             landmarks = data.get("landmarks")
+            now = time.time()
             if not landmarks or len(landmarks) != 63:
+                # Brief MediaPipe dropouts: reuse last landmarks / soft-hold
+                result = engine.process_gap(now)
                 await websocket.send_json(
-                    {"type": "frame", "hand_detected": False, "sentence": engine.sentence}
+                    {
+                        "type": "frame",
+                        "hand_detected": bool(result.get("hand_held")),
+                        **result,
+                    }
                 )
                 continue
 
-            now = time.time()
             result = engine.process_frame(landmarks, now)
             await websocket.send_json({"type": "frame", "hand_detected": True, **result})
     except WebSocketDisconnect:

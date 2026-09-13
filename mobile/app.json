@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Sign to Speech",
+    "slug": "sign-to-speech",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Sign to Speech uses the camera to recognize hand signs and convert them to speech.",
+        "NSMicrophoneUsageDescription": "Optional for future voice features.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
+      },
+      "bundleIdentifier": "com.sts.signtospeech"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#7c3aed",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.sts.signtospeech",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-audio"
+    ]
+  }
+}

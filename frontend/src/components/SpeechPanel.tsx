@@ -3,6 +3,11 @@ import { Volume2, VolumeX, Square, Sparkles, AlertCircle, Trash2 } from "lucide-
 import type { Voice } from "../lib/api";
 import { audioSrcFromResult, correctSentence, fetchVoices, speakText } from "../lib/api";
 import { speakBrowser, stopBrowserSpeech } from "../lib/browserTts";
+import {
+  loadSelectedVoiceId,
+  mergeVoiceLists,
+  saveSelectedVoiceId,
+} from "../lib/voices";
 
 type Props = {
   sentence: string[];
@@ -23,10 +28,18 @@ export function SpeechPanel({ sentence, autoSpeakWord, onClear }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    fetchVoices().then(({ voices: v, defaultId }) => {
-      setVoices(v.slice(0, 2));
-      setVoiceId(defaultId);
-    });
+    fetchVoices()
+      .then(({ voices: v, defaultId }) => {
+        const merged = mergeVoiceLists(v);
+        setVoices(merged);
+        const saved = loadSelectedVoiceId(defaultId);
+        setVoiceId(merged.some((x) => x.id === saved) ? saved : defaultId);
+      })
+      .catch(() => {
+        const merged = mergeVoiceLists([]);
+        setVoices(merged);
+        setVoiceId(loadSelectedVoiceId("browser"));
+      });
     if ("speechSynthesis" in window) {
       speechSynthesis.getVoices();
       speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
@@ -184,12 +197,22 @@ export function SpeechPanel({ sentence, autoSpeakWord, onClear }: Props) {
           {hasContent ? (
             <>
               {correctedText && (
-                <p className="speech-output-corrected">{correctedText}</p>
+                <p
+                  key={correctedText}
+                  className="speech-output-corrected text-arrive"
+                >
+                  {correctedText}
+                </p>
               )}
               <p className="speech-output-raw">Raw: {displayText}</p>
             </>
           ) : (
-            <p className="speech-output-placeholder">—</p>
+            <>
+              <p className="speech-output-placeholder">No speech yet</p>
+              <p className="empty-hint">
+                Confirmed signs appear here ready to speak
+              </p>
+            </>
           )}
         </div>
 
@@ -241,18 +264,46 @@ export function SpeechPanel({ sentence, autoSpeakWord, onClear }: Props) {
 
       <div className="panel-card">
         <h3 className="panel-card-title">Voice</h3>
-        <p className="voice-section-sub">System default or your ElevenLabs voice</p>
+        <p className="voice-section-sub">
+          System, ElevenLabs, or demo voices — full list under Voices
+        </p>
         <div className="voice-list voice-list-compact">
-          {voices.map((v) => (
+          {(
+            voices.some((v) => v.id === voiceId)
+              ? [
+                  ...voices.filter((v) => v.id === voiceId),
+                  ...voices.filter((v) => v.id !== voiceId),
+                ].slice(0, 4)
+              : voices.slice(0, 4)
+          ).map((v) => (
             <div
               key={v.id}
               className={`voice-item ${voiceId === v.id ? "selected" : ""}`}
-              onClick={() => setVoiceId(v.id)}
-              role="button"
+              onClick={() => {
+                setVoiceId(v.id);
+                saveSelectedVoiceId(v.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setVoiceId(v.id);
+                  saveSelectedVoiceId(v.id);
+                }
+              }}
+              role="radio"
+              aria-checked={voiceId === v.id}
               tabIndex={0}
             >
-              <input type="radio" name="voice" checked={voiceId === v.id} readOnly />
-              <div className="voice-avatar">{v.name[0]}</div>
+              <input
+                type="radio"
+                name="voice"
+                checked={voiceId === v.id}
+                readOnly
+                tabIndex={-1}
+              />
+              <div className="voice-avatar" aria-hidden>
+                {v.name[0]}
+              </div>
               <div className="voice-meta">
                 <strong>{v.name}</strong>
                 <small>{v.gender}</small>
@@ -273,9 +324,9 @@ export function SpeechPanel({ sentence, autoSpeakWord, onClear }: Props) {
         </div>
         <p className="eleven-footer">
           <Sparkles size={12} />
-          {voices.find((v) => v.provider === "elevenlabs")
-            ? `ElevenLabs: ${voices.find((v) => v.provider === "elevenlabs")!.name}`
-            : "Add ELEVENLABS_VOICE_ID in .env"}
+          {voices.find((v) => v.provider === "elevenlabs" && !String(v.id).startsWith("demo-"))
+            ? `ElevenLabs: ${voices.find((v) => v.provider === "elevenlabs" && !String(v.id).startsWith("demo-"))!.name}`
+            : "Open Voices for the full demo catalog"}
         </p>
       </div>
     </aside>
